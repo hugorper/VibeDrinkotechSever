@@ -347,19 +347,15 @@ namespace VibeDrinkotechSever {
 
 	    private void LogStart() {
 	        // Log stopping the application
-	        LogLine("status::start", true);
+	        LogLine("status::start");
 	    }
 
 		private void LogStop() {
 			// Log stopping the application
-			LogLine("status::stop", true);
+			LogLine("status::stop");
 		}
 
-		private void LogLine(string type, bool forceCommit = false, bool usePreviousDayFileName = false, float idleTimeOffsetSeconds = 0) {
-			LogLine(type, "", "", "", forceCommit, usePreviousDayFileName, idleTimeOffsetSeconds);
-		}
-
-		private void LogLine(string type, string title, string location, string subject, bool forceCommit = false, bool usePreviousDayFileName = false, float idleTimeOffsetSeconds = 0) {
+	    private void LogLine(string type, string title = "", string location = "", string subject = "") {
 			// Log a single line
 			DateTime now = DateTime.Now;
 
