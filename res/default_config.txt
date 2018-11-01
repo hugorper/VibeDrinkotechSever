@@ -1,0 +1,42 @@
+######################################################################################################
+#
+# CONFIGURATION FOR Le Vibe Drinkotech Server
+#
+######################################################################################################
+
+# Communication mode, set communication mode with the Drinkotech system
+#
+# Examples:
+#   mode=credit
+#
+# Values:
+#   -credit
+#   -debit
+#
+mode=credit
+
+# Spool path, path that contain spooled files
+#
+# Examples:
+#   spool=c:\temp
+#
+spool=c:\temp
+
+# COM port, com port to communicate with the Drinkotech system
+#
+# Examples:
+#   comPort=com1
+#
+comPort=com1
+
+# The time, in millisecond between each communication with the server
+#
+# Examples:
+#   timer=600
+#
+timer=1000
+
+# The debugMode, change to see debug information (true, false)
+#	
+#
+isDebug=false
