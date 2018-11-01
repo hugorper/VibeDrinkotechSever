@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Text;
 using System.Windows.Forms;
 using LogStringTestApp;
+using System.Timers;
 
 namespace VibeDrinkotechSever {
 
@@ -22,7 +23,7 @@ namespace VibeDrinkotechSever {
 		private const string DATE_TIME_FORMAT = "yyyy-dd-M--HH-mm-ss";								
 
 		// Properties
-		private Timer timerCheck;
+		private System.Timers.Timer timerCheck;
 		private ContextMenu contextMenu;
 		private MenuItem menuItemOpen;
 		private MenuItem menuItemOpenConfig;
@@ -118,7 +119,8 @@ namespace VibeDrinkotechSever {
 			if (System.Diagnostics.Debugger.IsAttached && windowsRunAtStartup) windowsRunAtStartup = false;
 		}
 
-		private void onTimer(object sender, EventArgs e) {
+		private void onTimer(Object source, ElapsedEventArgs e)
+		{
 			// Timer tick: check for the current application
 
 
@@ -126,6 +128,8 @@ namespace VibeDrinkotechSever {
 			if (queuedLogMessages.Count > 0 ) {
 				commitLines();
 			}
+
+            timerCheck.Start();
 		}
 
 		private void onResize(object sender, EventArgs e) {
@@ -317,9 +321,9 @@ namespace VibeDrinkotechSever {
 		private void start() {
 			if (!isRunning) {
 				// Initialize timer
-				timerCheck = new Timer();
-				timerCheck.Tick += new EventHandler(onTimer);
-				timerCheck.Interval = (int)(configTimeInterval * 1f);
+				timerCheck = new System.Timers.Timer((int)(configTimeInterval * 1f));
+			    timerCheck.Elapsed += onTimer;
+			    timerCheck.AutoReset = false;
 				timerCheck.Start();
 
 				lastTimeQueueWritten = DateTime.Now;
