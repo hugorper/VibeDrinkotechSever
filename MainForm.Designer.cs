@@ -60,7 +60,7 @@
             // 
             this.notifyIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon.Icon")));
             this.notifyIcon.Visible = true;
-            this.notifyIcon.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.onDoubleClickNotificationIcon);
+            this.notifyIcon.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.OnDoubleClickNotificationIcon);
             // 
             // MainForm
             // 
@@ -74,10 +74,10 @@
             this.Padding = new System.Windows.Forms.Padding(8);
             this.Text = "Le Vibe Drinkotech Sever";
             this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.onFormClosing);
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.onFormClosed);
-            this.Load += new System.EventHandler(this.onFormLoad);
-            this.Resize += new System.EventHandler(this.onResize);
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.OnFormClosing);
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.OnFormClosed);
+            this.Load += new System.EventHandler(this.OnFormLoad);
+            this.Resize += new System.EventHandler(this.OnResize);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             this.ResumeLayout(false);

@@ -223,7 +223,7 @@ namespace LogStringTestApp
                 }
             }
             // Notify listeners of the update
-            if (OnLogUpdate != null) OnLogUpdate();
+            OnLogUpdate?.Invoke();
         }
 
         // Save this log.

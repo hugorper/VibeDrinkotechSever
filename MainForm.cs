@@ -14,61 +14,57 @@ namespace VibeDrinkotechSever {
 	public partial class MainForm : Form {
 
 		// Constants
-		private const string SETTINGS_FIELD_RUN_AT_STARTUP = "RunAtStartup";
-		private const string REGISTRY_KEY_ID = "VibeDrinkotechSever";					// Registry app key for when it's running at startup
-		private const string CONFIG_FILE = "VibeDrinkotechSever.cfg";
+		private const string SettingsFieldRunAtStartup = "RunAtStartup";
+		private const string RegistryKeyId = "VibeDrinkotechSever";					// Registry app key for when it's running at startup
+		private const string ConfigFile = "VibeDrinkotechSever.cfg";
 
-		private const string LINE_DIVIDER = "\t";
-		private const string LINE_END = "\r\n";
-		private const string DATE_TIME_FORMAT = "yyyy-dd-M--HH-mm-ss";								
+		private const string LineDivider = "\t";
+		private const string LineEnd = "\r\n";
+		private const string DateTimeFormat = "yyyy-dd-M--HH-mm-ss";								
 
 		// Properties
-		private System.Timers.Timer timerCheck;
-		private ContextMenu contextMenu;
-		private MenuItem menuItemOpen;
-		private MenuItem menuItemOpenConfig;
-	    private MenuItem menuItemClearLog;
-		private MenuItem menuItemStartStop;
-		private MenuItem menuItemRunAtStartup;
-		private MenuItem menuItemExit;
-		private bool allowClose;
-		private bool allowShow;
-		private bool isRunning;
-		private bool isUserIdle;
-		private bool hasInitialized;
-		private string lastUserProcessId;
-		private string lastFileNameSaved;
-		private int lastDayLineLogged;
-		private DateTime lastTimeQueueWritten;
-		private List<string> queuedLogMessages;
+		private System.Timers.Timer _timerCheck;
+		private ContextMenu _contextMenu;
+		private MenuItem _menuItemOpen;
+		private MenuItem _menuItemOpenConfig;
+	    private MenuItem _menuItemClearLog;
+		private MenuItem _menuItemStartStop;
+		private MenuItem _menuItemRunAtStartup;
+		private MenuItem _menuItemExit;
+		private bool _allowClose;
+		private bool _allowShow;
+		private bool _isRunning;
+		private bool _hasInitialized;
+		private DateTime _lastTimeQueueWritten;
+		private List<string> _queuedLogMessages;
 
-	    private string configSpoolPath;
-	    private bool configModeIsCredit;
-		private float? configTimeInterval;										// In millisecons
-		private bool? configIsDebug;
-		private string configComPort;
+	    private string _configSpoolPath;
+	    private bool _configModeIsCredit;
+		private float? _configTimeInterval;										// In millisecons
+		private bool? _configIsDebug;
+		private string _configComPort;
 
-	    const string LOG_NAME = "Test";
-	    private LogString myLogger = LogString.GetLogString(LOG_NAME);
+	    const string LogName = "Test";
+	    private LogString _myLogger = LogString.GetLogString(LogName);
 
 
-		private StringBuilder lineToLog;											// Temp, used to create the line
+		private StringBuilder _lineToLog;											// Temp, used to create the line
 
 		// ================================================================================================================
 		// CONSTRUCTOR ----------------------------------------------------------------------------------------------------
 
 		public MainForm() {
 		    // Add update callback delegate
-		    myLogger.OnLogUpdate += new LogString.LogUpdateDelegate(this.LogUpdate);
+		    _myLogger.OnLogUpdate += new LogString.LogUpdateDelegate(this.LogUpdate);
 
-		    myLogger.Timestamp = false;
-		    myLogger.LineTerminate = false;
+		    _myLogger.Timestamp = false;
+		    _myLogger.LineTerminate = false;
 
 			InitializeComponent();
-			initializeForm();
+			InitializeForm();
 
 		    txtLog.ScrollBars = ScrollBars.Both; // use scroll bars; no text wrapping
-		    txtLog.MaxLength = myLogger.MaxChars + 100;
+		    txtLog.MaxLength = _myLogger.MaxChars + 100;
 		}
 
 	    // Updates that come from a different thread can not directly change the
@@ -79,7 +75,7 @@ namespace VibeDrinkotechSever {
 	        Invoke(new UpdateDelegate(
 	            delegate
 	            {
-	                txtLog.Text = myLogger.Log;
+	                txtLog.Text = _myLogger.Log;
 	            })
 	        );
 	    }
@@ -87,12 +83,12 @@ namespace VibeDrinkotechSever {
 		// ================================================================================================================
 		// EVENT INTERFACE ------------------------------------------------------------------------------------------------
 
-		private void onFormLoad(object sender, EventArgs e) {
+		private void OnFormLoad(object sender, EventArgs e) {
 			// First time the form is shown
 		}
 
 		protected override void SetVisibleCore(bool isVisible) {
-			if (!allowShow) {
+			if (!_allowShow) {
 				// Initialization form show, when it's ran: doesn't allow showing form
 				isVisible = false;
 				if (!this.IsHandleCreated) CreateHandle();
@@ -100,39 +96,39 @@ namespace VibeDrinkotechSever {
 			base.SetVisibleCore(isVisible);
 		}
 
-		private void onFormClosing(object sender, FormClosingEventArgs e) {
+		private void OnFormClosing(object sender, FormClosingEventArgs e) {
 			// Form is attempting to close
-			if (!allowClose) {
+			if (!_allowClose) {
 				// User initiated, just minimize instead
 				e.Cancel = true;
 				Hide();
 			}
 
-		    myLogger.OnLogUpdate -= new LogString.LogUpdateDelegate(this.LogUpdate);
+		    _myLogger.OnLogUpdate -= new LogString.LogUpdateDelegate(this.LogUpdate);
 		}
 
-		private void onFormClosed(object sender, FormClosedEventArgs e) {
+		private void OnFormClosed(object sender, FormClosedEventArgs e) {
 			// Stops everything
-			stop();
+			Stop();
 
 			// If debugging, un-hook itself from startup
-			if (System.Diagnostics.Debugger.IsAttached && windowsRunAtStartup) windowsRunAtStartup = false;
+			if (System.Diagnostics.Debugger.IsAttached && WindowsRunAtStartup) WindowsRunAtStartup = false;
 		}
 
-		private void onTimer(Object source, ElapsedEventArgs e)
+		private void OnTimer(Object source, ElapsedEventArgs e)
 		{
 			// Timer tick: check for the current application
 
 
 			// Write to log if enough time passed
-			if (queuedLogMessages.Count > 0 ) {
-				commitLines();
+			if (_queuedLogMessages.Count > 0 ) {
+				CommitLines();
 			}
 
-            timerCheck.Start();
+            _timerCheck.Start();
 		}
 
-		private void onResize(object sender, EventArgs e) {
+		private void OnResize(object sender, EventArgs e) {
 			// Resized window
 			//notifyIcon.BalloonTipTitle = "Minimize to Tray App";
 			//notifyIcon.BalloonTipText = "You have successfully minimized your form.";
@@ -143,144 +139,143 @@ namespace VibeDrinkotechSever {
 			}
 		}
 	    
-		private void onMenuItemOpenClicked(object Sender, EventArgs e) {
-			showForm();
+		private void OnMenuItemOpenClicked(object sender, EventArgs e) {
+			ShowForm();
 		}
 
-	    private void onMenuItemOpenConfigClicked(object Sender, EventArgs e) {
-	        Process.Start("notepad.exe", CONFIG_FILE);
+	    private void OnMenuItemOpenConfigClicked(object sender, EventArgs e) {
+	        Process.Start("notepad.exe", ConfigFile);
 	    }
 
-	    private void onMenuItemOpenClearLogClicked(object Sender, EventArgs e) {
-	        myLogger.Clear();
+	    private void OnMenuItemOpenClearLogClicked(object sender, EventArgs e) {
+	        _myLogger.Clear();
 	    }
 
-		private void onMenuItemStartStopClicked(object Sender, EventArgs e) {
-			if (isRunning) {
-				stop();
+		private void OnMenuItemStartStopClicked(object sender, EventArgs e) {
+			if (_isRunning) {
+				Stop();
 			} else {
-				start();
+				Start();
 			}
 		}
 
-		private void onMenuItemRunAtStartupClicked(object Sender, EventArgs e) {
-			menuItemRunAtStartup.Checked = !menuItemRunAtStartup.Checked;
-			settingsRunAtStartup = menuItemRunAtStartup.Checked;
-			applySettingsRunAtStartup();
+		private void OnMenuItemRunAtStartupClicked(object sender, EventArgs e) {
+			_menuItemRunAtStartup.Checked = !_menuItemRunAtStartup.Checked;
+			SettingsRunAtStartup = _menuItemRunAtStartup.Checked;
+			ApplySettingsRunAtStartup();
 		}
 
-		private void onMenuItemExitClicked(object Sender, EventArgs e) {
-			exit();
+		private void OnMenuItemExitClicked(object sender, EventArgs e) {
+			Exit();
 		}
 
-		private void onDoubleClickNotificationIcon(object sender, MouseEventArgs e) {
-			showForm();
+		private void OnDoubleClickNotificationIcon(object sender, MouseEventArgs e) {
+			ShowForm();
 		}
 
 
 		// ================================================================================================================
 		// INTERNAL INTERFACE ---------------------------------------------------------------------------------------------
 
-		private void initializeForm() {
+		private void InitializeForm() {
 			// Initialize
 
-			if (!hasInitialized) {
-				allowClose = false;
-				isRunning = false;
-				queuedLogMessages = new List<string>();
-				lineToLog = new StringBuilder();
-				lastFileNameSaved = "";
-				allowShow = false;
+			if (!_hasInitialized) {
+				_allowClose = false;
+				_isRunning = false;
+				_queuedLogMessages = new List<string>();
+				_lineToLog = new StringBuilder();
+				_allowShow = false;
 
 				// Force working folder
 				System.IO.Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
 
 				// Read configuration
-				readConfiguration();
+				ReadConfiguration();
 
 				// Create context menu for the tray icon and update it
-				createContextMenu();
+				CreateContextMenu();
 
 				// Update tray
-				updateTrayIcon();
+				UpdateTrayIcon();
 
 				// Check if it needs to run at startup
-				applySettingsRunAtStartup();
+				ApplySettingsRunAtStartup();
 
 				// Finally, start
-				start();
+				Start();
 
-				hasInitialized = true;
+				_hasInitialized = true;
 			}
 		}
 
-		private void createContextMenu() {
+		private void CreateContextMenu() {
 			// Initialize context menu
-			contextMenu = new ContextMenu();
+			_contextMenu = new ContextMenu();
 
 			// Initialize menu items
-			menuItemOpen = new MenuItem();
-			menuItemOpen.Index = 0;
-			menuItemOpen.Text = "&Open";
-			menuItemOpen.Click += new EventHandler(onMenuItemOpenClicked);
-			contextMenu.MenuItems.Add(menuItemOpen);
+			_menuItemOpen = new MenuItem();
+			_menuItemOpen.Index = 0;
+			_menuItemOpen.Text = "&Open";
+			_menuItemOpen.Click += new EventHandler(OnMenuItemOpenClicked);
+			_contextMenu.MenuItems.Add(_menuItemOpen);
 		    
-		    contextMenu.MenuItems.Add("-");
+		    _contextMenu.MenuItems.Add("-");
 
-		    menuItemOpenConfig = new MenuItem();
-		    menuItemOpenConfig.Index = 0;
-		    menuItemOpenConfig.Text = "Open &Config file";
-		    menuItemOpenConfig.Click += new EventHandler(onMenuItemOpenConfigClicked);
-		    contextMenu.MenuItems.Add(menuItemOpenConfig);
+		    _menuItemOpenConfig = new MenuItem();
+		    _menuItemOpenConfig.Index = 0;
+		    _menuItemOpenConfig.Text = "Open &Config file";
+		    _menuItemOpenConfig.Click += new EventHandler(OnMenuItemOpenConfigClicked);
+		    _contextMenu.MenuItems.Add(_menuItemOpenConfig);
 
-		    menuItemClearLog = new MenuItem();
-		    menuItemClearLog.Index = 0;
-		    menuItemClearLog.Text = "Clear &Log";
-		    menuItemClearLog.Click += new EventHandler(onMenuItemOpenClearLogClicked);
-		    contextMenu.MenuItems.Add(menuItemClearLog);
+		    _menuItemClearLog = new MenuItem();
+		    _menuItemClearLog.Index = 0;
+		    _menuItemClearLog.Text = "Clear &Log";
+		    _menuItemClearLog.Click += new EventHandler(OnMenuItemOpenClearLogClicked);
+		    _contextMenu.MenuItems.Add(_menuItemClearLog);
 
 
-			menuItemStartStop = new MenuItem();
-			menuItemStartStop.Index = 0;
-			menuItemStartStop.Text = ""; // Set later
-			menuItemStartStop.Click += new EventHandler(onMenuItemStartStopClicked);
-			contextMenu.MenuItems.Add(menuItemStartStop);
+			_menuItemStartStop = new MenuItem();
+			_menuItemStartStop.Index = 0;
+			_menuItemStartStop.Text = ""; // Set later
+			_menuItemStartStop.Click += new EventHandler(OnMenuItemStartStopClicked);
+			_contextMenu.MenuItems.Add(_menuItemStartStop);
 
-			contextMenu.MenuItems.Add("-");
+			_contextMenu.MenuItems.Add("-");
 
-			menuItemRunAtStartup = new MenuItem();
-			menuItemRunAtStartup.Index = 0;
-			menuItemRunAtStartup.Text = "Run at Windows startup";
-			menuItemRunAtStartup.Click += new EventHandler(onMenuItemRunAtStartupClicked);
-			menuItemRunAtStartup.Checked = settingsRunAtStartup;
-			contextMenu.MenuItems.Add(menuItemRunAtStartup);
+			_menuItemRunAtStartup = new MenuItem();
+			_menuItemRunAtStartup.Index = 0;
+			_menuItemRunAtStartup.Text = "Run at Windows startup";
+			_menuItemRunAtStartup.Click += new EventHandler(OnMenuItemRunAtStartupClicked);
+			_menuItemRunAtStartup.Checked = SettingsRunAtStartup;
+			_contextMenu.MenuItems.Add(_menuItemRunAtStartup);
 
-			contextMenu.MenuItems.Add("-");
+			_contextMenu.MenuItems.Add("-");
 
-			menuItemExit = new MenuItem();
-			menuItemExit.Index = 1;
-			menuItemExit.Text = "E&xit";
-			menuItemExit.Click += new EventHandler(onMenuItemExitClicked);
-			contextMenu.MenuItems.Add(menuItemExit);
+			_menuItemExit = new MenuItem();
+			_menuItemExit.Index = 1;
+			_menuItemExit.Text = "E&xit";
+			_menuItemExit.Click += new EventHandler(OnMenuItemExitClicked);
+			_contextMenu.MenuItems.Add(_menuItemExit);
 
-			notifyIcon.ContextMenu = contextMenu;
+			notifyIcon.ContextMenu = _contextMenu;
 
-			updateContextMenu();
+			UpdateContextMenu();
 		}
 
-		private void updateContextMenu() {
+		private void UpdateContextMenu() {
 			// Update start/stop command
-			if (menuItemStartStop != null) {
-				if (isRunning) {
-					menuItemStartStop.Text = "&Stop";
+			if (_menuItemStartStop != null) {
+				if (_isRunning) {
+					_menuItemStartStop.Text = "&Stop";
 				} else {
-					menuItemStartStop.Text = "&Start";
+					_menuItemStartStop.Text = "&Start";
 				}
 			}
 		}
 
-		private void updateTrayIcon() {
-			if (isRunning) {
+		private void UpdateTrayIcon() {
+			if (_isRunning) {
 				notifyIcon.Icon = VibeDrinkotechSever.Properties.Resources.iconNormal;
 				notifyIcon.Text = "Le Vibe Drinkotech Server (started)";
 			} else {
@@ -289,148 +284,147 @@ namespace VibeDrinkotechSever {
 			}
 		}
 
-		private void readConfiguration() {
+		private void ReadConfiguration() {
 			// Read the current configuration file
 
 			// Read default file
 			ConfigParser configDefault = new ConfigParser(VibeDrinkotechSever.Properties.Resources.default_config);
 			ConfigParser configUser;
 
-			if (!System.IO.File.Exists(CONFIG_FILE)) {
+			if (!System.IO.File.Exists(ConfigFile)) {
 				// Config file not found, create it first
 				Console.Write("Config file does not exist, creating");
 
 				// Write file so it can be edited by the user
-				System.IO.File.WriteAllText(CONFIG_FILE, VibeDrinkotechSever.Properties.Resources.default_config);
+				System.IO.File.WriteAllText(ConfigFile, VibeDrinkotechSever.Properties.Resources.default_config);
 
 				// User config is the same as the default
 				configUser = configDefault;
 			} else {
 				// Read the existing user config
-				configUser = new ConfigParser(System.IO.File.ReadAllText(CONFIG_FILE));
+				configUser = new ConfigParser(System.IO.File.ReadAllText(ConfigFile));
 			}
 
 			// Interprets config data
-	        configModeIsCredit = (configUser.getString("mode") ?? configDefault.getString("mode")) == "credit";
-		    configSpoolPath = configUser.getString("spool") ?? configDefault.getString("spool");
-			configTimeInterval = configUser.getFloat("timer") ?? configDefault.getFloat("timer");
-			configComPort = configUser.getString("comPort") ?? configDefault.getString("comPort");
-			configIsDebug = Boolean.Parse(configUser.getString("isDebug") ?? configDefault.getString("isDebug"));
+	        _configModeIsCredit = (configUser.getString("mode") ?? configDefault.getString("mode")) == "credit";
+		    _configSpoolPath = configUser.getString("spool") ?? configDefault.getString("spool");
+			_configTimeInterval = configUser.getFloat("timer") ?? configDefault.getFloat("timer");
+			_configComPort = configUser.getString("comPort") ?? configDefault.getString("comPort");
+			_configIsDebug = Boolean.Parse(configUser.getString("isDebug") ?? configDefault.getString("isDebug"));
 		}
 
-		private void start() {
-			if (!isRunning) {
+		private void Start() {
+			if (!_isRunning) {
 				// Initialize timer
-				timerCheck = new System.Timers.Timer((int)(configTimeInterval * 1f));
-			    timerCheck.Elapsed += onTimer;
-			    timerCheck.AutoReset = false;
-				timerCheck.Start();
+				_timerCheck = new System.Timers.Timer((int)(_configTimeInterval * 1f));
+			    _timerCheck.Elapsed += OnTimer;
+			    _timerCheck.AutoReset = false;
+				_timerCheck.Start();
 
-				lastTimeQueueWritten = DateTime.Now;
-				isRunning = true;
+				_lastTimeQueueWritten = DateTime.Now;
+				_isRunning = true;
 
-				updateContextMenu();
-				updateTrayIcon();
-			    logStart();
+				UpdateContextMenu();
+				UpdateTrayIcon();
+			    LogStart();
 			}
 		}
 
-		private void stop() {
-			if (isRunning) {
-				logStop();
+		private void Stop() {
+			if (_isRunning) {
+				LogStop();
 
-				timerCheck.Stop();
-				timerCheck.Dispose();
-				timerCheck = null;
+				_timerCheck.Stop();
+				_timerCheck.Dispose();
+				_timerCheck = null;
 
-				isRunning = false;
+				_isRunning = false;
 
-				updateContextMenu();
-				updateTrayIcon();
+				UpdateContextMenu();
+				UpdateTrayIcon();
 			}
 		}
 
-	    private void logStart() {
+	    private void LogStart() {
 	        // Log stopping the application
-	        logLine("status::start", true);
+	        LogLine("status::start", true);
 	    }
 
-		private void logStop() {
+		private void LogStop() {
 			// Log stopping the application
-			logLine("status::stop", true);
+			LogLine("status::stop", true);
 		}
 
-		private void logLine(string type, bool forceCommit = false, bool usePreviousDayFileName = false, float idleTimeOffsetSeconds = 0) {
-			logLine(type, "", "", "", forceCommit, usePreviousDayFileName, idleTimeOffsetSeconds);
+		private void LogLine(string type, bool forceCommit = false, bool usePreviousDayFileName = false, float idleTimeOffsetSeconds = 0) {
+			LogLine(type, "", "", "", forceCommit, usePreviousDayFileName, idleTimeOffsetSeconds);
 		}
 
-		private void logLine(string type, string title, string location, string subject, bool forceCommit = false, bool usePreviousDayFileName = false, float idleTimeOffsetSeconds = 0) {
+		private void LogLine(string type, string title, string location, string subject, bool forceCommit = false, bool usePreviousDayFileName = false, float idleTimeOffsetSeconds = 0) {
 			// Log a single line
 			DateTime now = DateTime.Now;
 
-			lineToLog.Clear();
-			lineToLog.Append(now.ToString(DATE_TIME_FORMAT));
-			lineToLog.Append(LINE_DIVIDER);
-			lineToLog.Append(type);
-			lineToLog.Append(LINE_DIVIDER);
-			lineToLog.Append(Environment.MachineName);
-			lineToLog.Append(LINE_DIVIDER);
-			lineToLog.Append(title);
-			lineToLog.Append(LINE_DIVIDER);
-			lineToLog.Append(location);
-			lineToLog.Append(LINE_DIVIDER);
-			lineToLog.Append(subject);
-			lineToLog.Append(LINE_END);
+			_lineToLog.Clear();
+			_lineToLog.Append(now.ToString(DateTimeFormat));
+			_lineToLog.Append(LineDivider);
+			_lineToLog.Append(type);
+			_lineToLog.Append(LineDivider);
+			_lineToLog.Append(Environment.MachineName);
+			_lineToLog.Append(LineDivider);
+			_lineToLog.Append(title);
+			_lineToLog.Append(LineDivider);
+			_lineToLog.Append(location);
+			_lineToLog.Append(LineDivider);
+			_lineToLog.Append(subject);
+			_lineToLog.Append(LineEnd);
 
-			queuedLogMessages.Add(lineToLog.ToString());
-			lastDayLineLogged = DateTime.Now.Day;
+			_queuedLogMessages.Add(_lineToLog.ToString());
 
-		    commitLines();
+		    CommitLines();
 
 		}
 
-		private void commitLines() {
+		private void CommitLines() {
 			// Commit all currently queued lines to the file
 
 			// If no commit needed, just return
-			if (queuedLogMessages.Count == 0) return;
+			if (_queuedLogMessages.Count == 0) return;
 
-			lineToLog.Clear();
-			foreach (var line in queuedLogMessages) {
-			    myLogger.Add(line);
-				lineToLog.Append(line);
+			_lineToLog.Clear();
+			foreach (var line in _queuedLogMessages) {
+			    _myLogger.Add(line);
+				_lineToLog.Append(line);
 			}
 
 
             // todo append to log
 		    
 
-		    updateContextMenu();
+		    UpdateContextMenu();
 
-		    queuedLogMessages.Clear();
+		    _queuedLogMessages.Clear();
 
-		    lastTimeQueueWritten = DateTime.Now;
+		    _lastTimeQueueWritten = DateTime.Now;
 		}
 
-		private void applySettingsRunAtStartup() {
+		private void ApplySettingsRunAtStartup() {
 			// Check whether it's properly set to run at startup or not
-			if (settingsRunAtStartup) {
+			if (SettingsRunAtStartup) {
 				// Should run at startup
-				if (!windowsRunAtStartup) windowsRunAtStartup = true;
+				if (!WindowsRunAtStartup) WindowsRunAtStartup = true;
 			} else {
 				// Should not run at startup
-				if (windowsRunAtStartup) windowsRunAtStartup = false;
+				if (WindowsRunAtStartup) WindowsRunAtStartup = false;
 			}
 		}
 
-		private void showForm() {
-			allowShow = true;
+		private void ShowForm() {
+			_allowShow = true;
 			Show();
 			WindowState = FormWindowState.Normal;
 		}
 
-		private void exit() {
-			allowClose = true;
+		private void Exit() {
+			_allowClose = true;
 			Close();
 		}
 
@@ -438,36 +432,36 @@ namespace VibeDrinkotechSever {
 		// ================================================================================================================
 		// ACCESSOR INTERFACE ---------------------------------------------------------------------------------------------
 
-		private bool settingsRunAtStartup {
+		private bool SettingsRunAtStartup {
 			// Whether the settings say the app should run at startup or not
 			get {
-				return (bool)Settings.Default[SETTINGS_FIELD_RUN_AT_STARTUP];
+				return (bool)Settings.Default[SettingsFieldRunAtStartup];
 			}
 			set {
-				Settings.Default[SETTINGS_FIELD_RUN_AT_STARTUP] = value;
+				Settings.Default[SettingsFieldRunAtStartup] = value;
 				Settings.Default.Save();
 			}
 		}
 
-		private bool windowsRunAtStartup {
+		private bool WindowsRunAtStartup {
 			// Whether it's actually set to run at startup or not
 			get {
-				return getStartupRegistryKey().GetValue(REGISTRY_KEY_ID) != null;
+				return GetStartupRegistryKey().GetValue(RegistryKeyId) != null;
 			}
 			set {
 				if (value) {
 					// Add
-					getStartupRegistryKey(true).SetValue(REGISTRY_KEY_ID, Application.ExecutablePath.ToString());
+					GetStartupRegistryKey(true).SetValue(RegistryKeyId, Application.ExecutablePath.ToString());
 					//Console.WriteLine("RUN AT STARTUP SET AS => TRUE");
 				} else {
 					// Remove
-					getStartupRegistryKey(true).DeleteValue(REGISTRY_KEY_ID, false);
+					GetStartupRegistryKey(true).DeleteValue(RegistryKeyId, false);
 					//Console.WriteLine("RUN AT STARTUP SET AS => FALSE");
 				}
 			}
 		}
 
-		private RegistryKey getStartupRegistryKey(bool writable = false) {
+		private RegistryKey GetStartupRegistryKey(bool writable = false) {
 			return Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable);
 		}
 
