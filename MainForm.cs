@@ -130,6 +130,10 @@ namespace VibeDrinkotechSever {
 		    {
 		        HartNineSix.Instance.RequestToSend();
 		    }
+		    else
+		    {
+		        HartNineSix.Instance.RequestToReceive();
+		    }
 
 			// Write to log if enough time passed
 			if (_queuedLogMessages.Count > 0 ) {
@@ -361,6 +365,7 @@ namespace VibeDrinkotechSever {
 		}
 
 		private void Stop() {
+		    LogString.PersistAll();
 
 			if (_isRunning) {
 				LogStop();

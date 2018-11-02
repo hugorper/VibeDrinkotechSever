@@ -1,4 +1,6 @@
-﻿namespace VibeDrinkotechSever
+﻿using System;
+
+namespace VibeDrinkotechSever
 {
     public static class ExtensionMethods
     {

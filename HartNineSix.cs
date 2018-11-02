@@ -136,6 +136,7 @@ namespace VibeDrinkotechSever
                     else
                     {
                         if (IsDebug) Logger("info::link", "Bad response to ENQ");
+                        return;
                     }
 
                     int server3 = 0;
@@ -245,7 +246,7 @@ namespace VibeDrinkotechSever
                     initByte[K_PLUS_CHAR + 3] = (byte) ((int) initByte[K_PLUS_CHAR + 3] + count2);
                     initByte[K_PLUS_CHAR + 4] = (byte) ((int) initByte[K_PLUS_CHAR + 4] + count1);
 
-                    initByte[K_CHECKSUM] = ComputeAdditionChecksum(initByte);
+                    initByte[K_CHECKSUM] = ComputeCreditAdditionChecksum(initByte);
                     
                     try
                     {
@@ -326,6 +327,170 @@ namespace VibeDrinkotechSever
         public void RequestToReceive()
         {
             if (IsDebug) Logger("info::link", "Begin request to receive message 'l'");
+
+            if (_serialPort.IsOpen)
+            {
+                
+                if (Alive())
+                {
+                    if (IsDebug) Logger("info::link", "System respond ACK to ENQ");
+                }
+                else
+                {
+                    if (IsDebug) Logger("info::link", "Bad response to ENQ");
+                    return;
+                }
+
+                // 0x6f is BCC
+                var initByte = new byte[]
+                {
+                    0x2, 0x6c, 0x3, 0x6f
+                };
+
+                // ask if something to send from drinkotech
+                try
+                {
+                    _serialPort.Write(initByte, 0, sizeof(byte) * initByte.Length);
+                }
+                catch (Exception e)
+                {
+                    Logger("error::serial", e.Message.FormatErrorForLog());
+                    return;
+                }
+
+                Wait();
+
+                var readByte = new byte[]
+                {
+                    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+                    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+                    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 
+                };
+
+                if (IsDebug) Logger("info::link", "Check if product available");
+
+                try
+                {
+                    _serialPort.Read(readByte, 0, readByte.Length);
+                }
+                catch (Exception e)
+                {
+                    Logger("error::serial", e.Message.FormatErrorForLog());
+                    return;
+                }
+
+
+                //  Reply if no beverage has been dispensed(empty message)
+                //    STX = 1 byte(02)H
+                //    ETX = 1 byte(03)H
+                //    BCC = 1 byte
+                if (readByte[0] == 2 && readByte[1] == 3 && readByte[2] == 3)       // nothing to read
+                {
+                    if (IsDebug) Logger("info::link", "Nothing to read");
+                }
+                else if (readByte[0] == 2 && readByte[27] == 3)
+                {
+                    //Reply if a beverage has been dispensed :
+                    //  STX =               1 byte (02)H
+                    //  waiter number =     3 bytes ( '001' to '495 )
+                    //  table number =      5 bytes ( '00001' to '09999' )
+                    //  PLU number =        5 bytes ( '00001' to '09999' )
+                    //  Qty =               5 bytes ( '00000' to '65535' )
+                    //  sign =              1 byte (2B)H, (2D)H or (2A)H
+                    //  Qty_CD =            5 bytes ( '00001' to '65535' )
+                    //  Location number =   2 bytes ( '00' to '15' )
+                    //  ETX =               1 byte (03)H
+                    //  BCC =               1 byte
+
+                    Wait();
+
+                    // check checksum
+                    var bcc = ComputeDebitAdditionChecksum(readByte);
+                    if (bcc == readByte[28])
+                    {
+                        int waiter = Int16.Parse($"{ATS(readByte[1])}{ATS(readByte[2])}{ATS(readByte[3])}");
+                        int table = Int16.Parse($"{ATS(readByte[4])}{ATS(readByte[5])}{ATS(readByte[6])}{ATS(readByte[7])}{ATS(readByte[8])}");
+                        int plu = Int16.Parse($"{ATS(readByte[9])}{ATS(readByte[10])}{ATS(readByte[11])}{ATS(readByte[12])}{ATS(readByte[13])}");
+                        int qty = Int16.Parse($"{ATS(readByte[14])}{ATS(readByte[15])}{ATS(readByte[16])}{ATS(readByte[17])}{ATS(readByte[18])}");
+                        string sign = "";
+                        if (readByte[19] == 0x2b) // +
+                        {
+                            sign = "plus";
+                        }
+                        else if (readByte[19] == 0x2d) // -
+                        {
+                            sign = "minus";
+
+                        }
+                        else if (readByte[19] == 0x2A) // *
+                        {
+                            sign = "multiply";
+
+                        }
+                        int qtyCD = Int16.Parse($"{ATS(readByte[20])}{ATS(readByte[21])}{ATS(readByte[22])}{ATS(readByte[23])}{ATS(readByte[24])}");
+                        int location = Int16.Parse($"{ATS(readByte[25])}{ATS(readByte[26])}");
+
+                        if (!WriteDebitFile(waiter, table, plu, qty, sign, qtyCD, location))
+                        {
+                            Logger("info::link", "Send NAK");
+                            // checksum fail
+                            var errorByte = new byte[] {0x15}; // NAK
+            
+                            try
+                            {
+                                _serialPort.Write(initByte, 0, initByte.Length);
+                            }
+                            catch (Exception e)
+                            {
+                                Logger("error::serial", e.Message.FormatErrorForLog());
+                                return;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (IsDebug) Logger("info::link", "Checksum fail return NAK");
+                        // checksum fail
+                        var errorByte = new byte[] {0x15}; // NAK
+            
+                        try
+                        {
+                            _serialPort.Write(initByte, 0, initByte.Length);
+                        }
+                        catch (Exception e)
+                        {
+                            Logger("error::serial", e.Message.FormatErrorForLog());
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Ascii to string
+        private string ATS(byte value)
+        {
+            return (value - 0x30).ToString(); // 30 is 0 ascii
+        } 
+
+        private bool WriteDebitFile(int waiter, int table, int plu, int qty, string sign, int qtyCD, int location)
+        {
+            string fileName = Path.Combine(this.SpoolPath, $"debit_{waiter}_{table}_{plu}_{qty}_{sign}_{qtyCD}_{location}_{Guid.NewGuid().ToString()}.debit");
+            try
+            {
+                using (StreamWriter sw = File.CreateText(fileName))
+                {
+                    sw.Write(fileName);         
+                    sw.Close();
+                }
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                Logger("info::file", "Could not create output file, send NAK");
+                return false;
+            }
         }
 
         private bool Alive()
@@ -375,12 +540,27 @@ namespace VibeDrinkotechSever
             System.Threading.Thread.Sleep(this.WaitTime);
         }
 
-        private byte ComputeAdditionChecksum(byte[] data)
+        private byte ComputeCreditAdditionChecksum(byte[] data)
         {
             byte sum = 0;
             unchecked // Let overflow occur without exceptions
             {
                 for (var index = 1; index <= K_END_CHAR; index++)
+                {
+                    byte b = data[index];
+                    sum ^= b;
+                }
+            }
+
+            return sum;
+        }
+
+        private byte ComputeDebitAdditionChecksum(byte[] data)
+        {
+            byte sum = 0;
+            unchecked // Let overflow occur without exceptions
+            {
+                for (var index = 1; index <= 27; index++)
                 {
                     byte b = data[index];
                     sum ^= b;
