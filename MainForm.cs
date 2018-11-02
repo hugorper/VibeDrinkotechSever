@@ -11,6 +11,8 @@ using System.Timers;
 
 namespace VibeDrinkotechSever {
 
+    public delegate void Log(string type, string title);
+
 	public partial class MainForm : Form {
 
 		// Constants
@@ -41,7 +43,7 @@ namespace VibeDrinkotechSever {
 	    private string _configSpoolPath;
 	    private bool _configModeIsCredit;
 		private float? _configTimeInterval;										// In millisecons
-		private bool? _configIsDebug;
+		private bool _configIsDebug;
 		private string _configComPort;
 
 	    const string LogName = "Test";
@@ -57,6 +59,12 @@ namespace VibeDrinkotechSever {
 		    // Add update callback delegate
 		    _myLogger.OnLogUpdate += new LogString.LogUpdateDelegate(this.LogUpdate);
 
+            // Setup log delegate
+		    HartNineSix.Instance.Logger = delegate(string type, string title)
+		    {
+                LogLine(type, title);
+		    };
+		    
 		    _myLogger.Timestamp = false;
 		    _myLogger.LineTerminate = false;
 
@@ -118,14 +126,20 @@ namespace VibeDrinkotechSever {
 		private void OnTimer(Object source, ElapsedEventArgs e)
 		{
 			// Timer tick: check for the current application
-
+		    if (_configModeIsCredit)
+		    {
+		        HartNineSix.Instance.RequestToSend();
+		    }
 
 			// Write to log if enough time passed
 			if (_queuedLogMessages.Count > 0 ) {
 				CommitLines();
 			}
 
-            _timerCheck.Start();
+		    if (_timerCheck != null)
+		    {
+                 _timerCheck.Start();
+		    }
 		}
 
 		private void OnResize(object sender, EventArgs e) {
@@ -192,6 +206,10 @@ namespace VibeDrinkotechSever {
 
 				// Read configuration
 				ReadConfiguration();
+
+			    HartNineSix.Instance.SpoolPath = _configSpoolPath;
+			    HartNineSix.Instance.WaitTime = (int)(_configTimeInterval * 1f);
+			    HartNineSix.Instance.IsDebug = _configIsDebug;
 
 				// Create context menu for the tray icon and update it
 				CreateContextMenu();
@@ -311,10 +329,23 @@ namespace VibeDrinkotechSever {
 			_configTimeInterval = configUser.getFloat("timer") ?? configDefault.getFloat("timer");
 			_configComPort = configUser.getString("comPort") ?? configDefault.getString("comPort");
 			_configIsDebug = Boolean.Parse(configUser.getString("isDebug") ?? configDefault.getString("isDebug"));
+
+		    if (_configIsDebug) LogLine("read::config", "Is credit mode = " + _configModeIsCredit.ToString());
+		    if (_configIsDebug) LogLine("read::config", "Spool path = " + _configSpoolPath);
+		    if (_configIsDebug) LogLine("read::config", "Time interval = " + _configTimeInterval);
+		    if (_configIsDebug) LogLine("read::config", "Com port = " + _configComPort);
 		}
 
 		private void Start() {
-			if (!_isRunning) {
+			if (!_isRunning)
+			{
+			    LogStart();
+			    if (!HartNineSix.Instance.OpenComPort(_configComPort))
+			    {
+                    LogLine("error:app", "Could not finalize app start");
+			        return;
+			    }
+
 				// Initialize timer
 				_timerCheck = new System.Timers.Timer((int)(_configTimeInterval * 1f));
 			    _timerCheck.Elapsed += OnTimer;
@@ -326,17 +357,20 @@ namespace VibeDrinkotechSever {
 
 				UpdateContextMenu();
 				UpdateTrayIcon();
-			    LogStart();
 			}
 		}
 
 		private void Stop() {
+
 			if (_isRunning) {
 				LogStop();
 
 				_timerCheck.Stop();
+			    _timerCheck.Enabled = false;
 				_timerCheck.Dispose();
 				_timerCheck = null;
+
+			    HartNineSix.Instance.CloseComPort();
 
 				_isRunning = false;
 
@@ -380,26 +414,32 @@ namespace VibeDrinkotechSever {
 		}
 
 		private void CommitLines() {
-			// Commit all currently queued lines to the file
+		    try
+		    {
+                
+		        // If no commit needed, just return
+		        if (_queuedLogMessages.Count == 0) return;
 
-			// If no commit needed, just return
-			if (_queuedLogMessages.Count == 0) return;
-
-			_lineToLog.Clear();
-			foreach (var line in _queuedLogMessages) {
-			    _myLogger.Add(line);
-				_lineToLog.Append(line);
-			}
+		        _lineToLog.Clear();
+		        foreach (var line in _queuedLogMessages) {
+		            _myLogger.Add(line);
+		            _lineToLog.Append(line);
+		        }
 
 
-            // todo append to log
+		        // todo append to log
 		    
 
-		    UpdateContextMenu();
+		        UpdateContextMenu();
 
-		    _queuedLogMessages.Clear();
+		        _queuedLogMessages.Clear();
 
-		    _lastTimeQueueWritten = DateTime.Now;
+		        _lastTimeQueueWritten = DateTime.Now;
+		    }
+		    catch 
+		    {
+		       
+		    }
 		}
 
 		private void ApplySettingsRunAtStartup() {

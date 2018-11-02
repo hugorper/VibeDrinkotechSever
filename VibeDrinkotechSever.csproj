@@ -86,7 +86,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConfigParser.cs" />
-    <Compile Include="Hart96.cs" />
+    <Compile Include="ExtensionMethods.cs" />
+    <Compile Include="HartNineSix.cs" />
     <Compile Include="LogString.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
